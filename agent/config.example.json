@@ -1,0 +1,8 @@
+{
+    "server_url": "http://<YOUR_SERVER_IP>:5000/api/audit",
+    "enrollment_key": "<PASTE_ENROLLMENT_KEY_FROM_SERVER_CONSOLE>",
+    "endpoint_id": "",
+    "api_key": "",
+    "interval_seconds": 300,
+    "run_mode": "once"
+}

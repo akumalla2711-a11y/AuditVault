@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+
+{% block title %}AuditVault V2.2 — Endpoint Intelligence{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block body %}
+<div class="dashboard">
+    <button class="mobile-toggle" id="mobile-menu-btn"><span>☰</span></button>
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-icon">🛡️</div>
+            <h2>AuditVault</h2>
+        </div>
+
+        <div class="sidebar-section">Intelligence</div>
+        <button class="nav-item active" data-target="view-overview">
+            <span class="nav-icon">📊</span> Security Brief
+        </button>
+        <button class="nav-item" data-target="view-timeline">
+            <span class="nav-icon">⏱️</span> Timeline Explorer
+        </button>
+        <button class="nav-item" data-target="view-alerts">
+            <span class="nav-icon">⚠️</span> Alert Center
+        </button>
+
+        <div class="sidebar-section">Fleet Management</div>
+        <button class="nav-item" data-target="view-endpoints">
+            <span class="nav-icon">💻</span> Endpoints
+        </button>
+        <button class="nav-item" data-target="view-approvals">
+            <span class="nav-icon">⏳</span> Pending Approvals
+        </button>
+
+        <!-- Hidden navigation item for dynamic switching -->
+        <button class="nav-item d-none" data-target="view-endpoint-details" id="nav-endpoint-details">
+            <span class="nav-icon">🔎</span> Investigation
+        </button>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">{{ username[0] | upper }}</div>
+                <div>
+                    <div class="user-name">{{ username }}</div>
+                    <div class="user-role">Administrator</div>
+                </div>
+            </div>
+            <a href="{{ url_for('logout') }}" class="nav-item" style="margin-top: 0.5rem; color: var(--danger);">
+                <span class="nav-icon">🚪</span> Logout
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="page-header">
+            <div>
+                <h1 class="page-title" id="current-page-title">Security Brief</h1>
+                <p class="page-subtitle" id="current-page-subtitle">Global threat and health overview</p>
+            </div>
+            <div class="header-actions">
+                <span class="refresh-indicator" id="last-refresh">Live Sync Active</span>
+                <button class="btn btn-primary btn-sm" id="btn-refresh">
+                    <span>🔄</span> Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- SECURITY BRIEF VIEW -->
+        <section class="content-section active" id="view-overview">
+            <div class="kpi-grid">
+                <div class="kpi-card kpi-primary glass-card">
+                    <div class="kpi-label">Online / Active</div>
+                    <div class="kpi-value" id="kpi-endpoints">- / -</div>
+                    <div class="kpi-detail">Monitored machines</div>
+                    <div class="kpi-icon">💻</div>
+                </div>
+                <div class="kpi-card kpi-danger glass-card">
+                    <div class="kpi-label">Critical Alerts</div>
+                    <div class="kpi-value" id="kpi-critical-alerts">-</div>
+                    <div class="kpi-detail">Requires immediate action</div>
+                    <div class="kpi-icon">🚨</div>
+                </div>
+                <div class="kpi-card kpi-warning glass-card">
+                    <div class="kpi-label">Warning Alerts</div>
+                    <div class="kpi-value" id="kpi-warning-alerts">-</div>
+                    <div class="kpi-detail">Investigation recommended</div>
+                    <div class="kpi-icon">⚠️</div>
+                </div>
+                <div class="kpi-card kpi-success glass-card">
+                    <div class="kpi-label">Total Events</div>
+                    <div class="kpi-value" id="kpi-total-events">-</div>
+                    <div class="kpi-detail">Telemetry records ingested</div>
+                    <div class="kpi-icon">⏱️</div>
+                </div>
+            </div>
+            
+            <div class="command-center-row">
+                <div class="glass-card">
+                    <h3 class="section-title mb-2">Recent Events</h3>
+                    <div id="overview-recent-events" style="max-height: 250px; overflow-y: auto;">
+                        <div class="table-empty">Loading...</div>
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <h3 class="section-title mb-2">Top Risk Endpoints</h3>
+                    <div class="table-wrapper" style="max-height: 250px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Hostname</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-risk-endpoints">
+                                <tr><td colspan="2" class="table-empty">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="glass-card">
+                    <h3 class="section-title mb-2">Alert Summary</h3>
+                    <div class="table-wrapper" style="max-height: 250px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Alert Type</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-alert-summary">
+                                <tr><td colspan="2" class="table-empty">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h3 class="section-title mb-2">Global Activity Preview</h3>
+                <div id="overview-timeline-preview" style="display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem;">
+                    <div class="table-empty">Loading timeline...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TIMELINE EXPLORER -->
+        <section class="content-section" id="view-timeline">
+            <div class="glass-card mb-3">
+                <div class="section-header" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                    <input type="text" class="form-input" id="timeline-search" placeholder="Search events..." style="width: 300px; margin-bottom:0;">
+                    <select class="form-input" id="timeline-severity" style="width: 150px; margin-bottom:0;">
+                        <option value="">All Severities</option>
+                        <option value="Critical">Critical</option>
+                        <option value="Warning">Warning</option>
+                        <option value="Info">Info</option>
+                    </select>
+                    <div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
+                        <button class="btn btn-ghost btn-sm" id="btn-timeline-prev">◀ Prev</button>
+                        <span id="timeline-page-indicator" style="font-size: 0.85rem; color: var(--text-secondary);">Page 1</span>
+                        <button class="btn btn-ghost btn-sm" id="btn-timeline-next">Next ▶</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="timeline-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+                <!-- Filled via JS -->
+            </div>
+        </section>
+
+        <!-- ALERTS CENTER -->
+        <section class="content-section" id="view-alerts">
+            <div class="glass-card">
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Severity</th>
+                                <th>Alert Type</th>
+                                <th>Endpoint</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-alerts">
+                            <tr><td colspan="7" class="table-empty">Loading alerts...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ENDPOINTS -->
+        <section class="content-section" id="view-endpoints">
+            <div class="glass-card mb-3">
+                <div class="section-header" style="display: flex; gap: 1rem; align-items: center;">
+                    <input type="text" class="form-input" id="endpoints-search" placeholder="Search hostname or IP..." style="width: 300px; margin-bottom:0;">
+                    <select class="form-input" id="endpoints-tag-filter" style="width: 180px; margin-bottom:0;">
+                        <option value="">All Tags</option>
+                        <option value="NONE">No Tag</option>
+                        <option value="LAB">LAB</option>
+                        <option value="SERVER">SERVER</option>
+                        <option value="ADMIN">ADMIN</option>
+                        <option value="RESEARCH">RESEARCH</option>
+                    </select>
+                </div>
+            </div>
+            <div class="glass-card">
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Hostname</th>
+                                <th>IP Address</th>
+                                <th>OS</th>
+                                <th>Tags</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-endpoints">
+                            <tr><td colspan="7" class="table-empty">Loading endpoints...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ENDPOINT INVESTIGATION PAGE -->
+        <section class="content-section" id="view-endpoint-details">
+            <!-- Hero Panel -->
+            <div class="glass-card mb-3">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h2 id="inv-hostname" style="margin:0 0 0.25rem 0; color: var(--text-primary); font-size: 2rem;">LOADING...</h2>
+                        <code id="inv-guid" style="color: var(--text-muted); font-size: 0.85rem;">-</code>
+                    </div>
+                    <div style="display: flex; gap: 2.5rem; flex-wrap: wrap; align-items: center;">
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.25rem;">Live Status</div>
+                            <div id="inv-status" style="font-weight: bold;">-</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.25rem;">Open Alerts</div>
+                            <div id="inv-open-alerts" class="badge badge-danger" style="font-size: 1rem; padding: 0.25rem 0.75rem;">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Cards -->
+            <div class="health-cards" id="inv-health-cards">
+                <div class="health-card">
+                    <div class="health-card-title">Last 24 Hours Summary</div>
+                    <div class="health-card-body">
+                        <div style="display: flex; justify-content: space-between;"><span>Failed Logins:</span> <span id="inv-24h-failed-logins" style="color: var(--danger); font-weight: 600;">-</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>USB Devices Used:</span> <span id="inv-24h-usb" style="font-weight: 600;">-</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>Software Changes:</span> <span id="inv-24h-software" style="font-weight: 600;">-</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>Open Alerts:</span> <span id="inv-24h-alerts" style="font-weight: 600;">-</span></div>
+                    </div>
+                </div>
+                <div class="health-card">
+                    <div class="health-card-title">Authentication</div>
+                    <div class="health-card-body">
+                        <div style="display: flex; justify-content: space-between;"><span>Success:</span> <span id="inv-auth-success" style="color: var(--success); font-weight: 600;">-</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>Failed:</span> <span id="inv-auth-failed" style="color: var(--danger); font-weight: 600;">-</span></div>
+                    </div>
+                </div>
+                <div class="health-card">
+                    <div class="health-card-title">USB Activity</div>
+                    <div class="health-card-body">
+                        <div style="display: flex; justify-content: space-between;"><span>Known Devices:</span> <span id="inv-usb-known" style="font-weight: 600;">-</span></div>
+                    </div>
+                </div>
+                <div class="health-card">
+                    <div class="health-card-title">System Defender</div>
+                    <div class="health-card-body">
+                        <div style="display: flex; justify-content: space-between;"><span>State:</span> <span id="inv-defender-state" style="font-weight: 600;">-</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>Threats:</span> <span id="inv-defender-threats" style="font-weight: 600;">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div class="inv-tabs">
+                <div class="inv-tab active" data-tab="inv-tab-overview">Overview</div>
+                <div class="inv-tab" data-tab="inv-tab-timeline">Activity Timeline</div>
+                <div class="inv-tab" data-tab="inv-tab-inventory">Inventory (Software/USB)</div>
+                <div class="inv-tab" data-tab="inv-tab-alerts">Active Alerts</div>
+            </div>
+
+            <!-- Tab: Overview -->
+            <div class="inv-tab-content active" id="inv-tab-overview">
+                <div class="glass-card">
+                    <h3 class="section-title mb-2">System Information</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">OS</div>
+                            <div id="inv-os" style="color: var(--text-primary); font-weight: 500;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">IP Address</div>
+                            <div id="inv-ip" style="color: var(--text-primary); font-weight: 500;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Agent Version</div>
+                            <div id="inv-agent-version" style="color: var(--text-primary); font-weight: 500;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Last Heartbeat</div>
+                            <div id="inv-lastseen" style="color: var(--text-primary); font-weight: 500;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Events Recorded</div>
+                            <div id="inv-total-events" style="color: var(--text-primary); font-weight: 500;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Alerts Generated</div>
+                            <div id="inv-total-alerts" style="color: var(--text-primary); font-weight: 500;">-</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="glass-card" style="margin-top: 1.5rem;">
+                    <h3 class="section-title mb-2">Recent Security Activity</h3>
+                    <div id="inv-recent-activity" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 300px; overflow-y: auto;">
+                        <div class="table-empty">Loading activity...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Timeline (Vertical Visualization) -->
+            <div class="inv-tab-content" id="inv-tab-timeline">
+                <div class="glass-card">
+                    <div class="vertical-timeline" id="inv-vertical-timeline">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Inventory -->
+            <div class="inv-tab-content" id="inv-tab-inventory">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div class="glass-card">
+                        <h3 class="section-title mb-2">Software</h3>
+                        <div class="table-wrapper" style="max-height: 350px;">
+                            <table class="data-table">
+                                <thead><tr><th>Name</th><th>Version</th></tr></thead>
+                                <tbody id="inv-table-software"><tr><td colspan="2" class="table-empty">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="glass-card">
+                        <h3 class="section-title mb-2">USB Devices</h3>
+                        <div class="table-wrapper" style="max-height: 350px;">
+                            <table class="data-table">
+                                <thead><tr><th>Device</th><th>Status</th><th>First Seen</th><th>Last Seen</th></tr></thead>
+                                <tbody id="inv-table-usb"><tr><td colspan="4" class="table-empty">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Alerts -->
+            <div class="inv-tab-content" id="inv-tab-alerts">
+                <div class="glass-card">
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead><tr><th>Time</th><th>Severity</th><th>Type</th><th>Description</th><th>Status</th><th>Action</th></tr></thead>
+                            <tbody id="inv-table-alerts"><tr><td colspan="6" class="table-empty">Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- PENDING APPROVALS -->
+        <section class="content-section" id="view-approvals">
+            <div class="glass-card">
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Hostname</th>
+                                <th>Machine GUID</th>
+                                <th>IP Address</th>
+                                <th>First Seen</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-approvals">
+                            <tr><td colspan="5" class="table-empty">No endpoints pending approval.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

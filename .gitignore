@@ -1,0 +1,42 @@
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+venv/
+env/
+.venv/
+*.spec
+
+# === Environment & Secrets ===
+.env
+.env.*
+
+# === Database ===
+*.db
+*.sqlite3
+
+# === Agent Sensitive Files ===
+agent/config.json
+agent/logs/
+agent/queue/
+agent/dist/
+
+# === OS Files ===
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === Old Reference ===
+RemoteAuditTool-main/
