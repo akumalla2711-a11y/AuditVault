@@ -133,8 +133,6 @@ On first run, the SQLite database is automatically created with:
 - A default admin account (`admin` / `admin`)
 - An enrollment key (printed in the console — save this)
 
-The dashboard will be available at **http://localhost:5000**
-
 ### 2. Configure the Agent
 
 ```powershell
